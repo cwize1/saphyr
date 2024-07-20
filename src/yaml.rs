@@ -5,9 +5,9 @@
 use std::{convert::TryFrom, ops::Index, ops::IndexMut};
 
 use hashlink::LinkedHashMap;
-use saphyr_parser::{Parser, ScanError};
+use saphyr_parser::{parse_f64, Parser, ScalarValue, ScanError};
 
-use crate::{loader::parse_f64, YamlLoader};
+use crate::YamlLoader;
 
 /// A YAML node is stored as this `Yaml` enumeration, which provides an easy way to
 /// access your YAML document.
@@ -213,32 +213,19 @@ impl Yaml {
     /// ```
     #[must_use]
     pub fn from_str(v: &str) -> Yaml {
-        if let Some(number) = v.strip_prefix("0x") {
-            if let Ok(i) = i64::from_str_radix(number, 16) {
-                return Yaml::Integer(i);
-            }
-        } else if let Some(number) = v.strip_prefix("0o") {
-            if let Ok(i) = i64::from_str_radix(number, 8) {
-                return Yaml::Integer(i);
-            }
-        } else if let Some(number) = v.strip_prefix('+') {
-            if let Ok(i) = number.parse::<i64>() {
-                return Yaml::Integer(i);
-            }
-        }
-        match v {
-            "~" | "null" => Yaml::Null,
-            "true" => Yaml::Boolean(true),
-            "false" => Yaml::Boolean(false),
-            _ => {
-                if let Ok(integer) = v.parse::<i64>() {
-                    Yaml::Integer(integer)
-                } else if parse_f64(v).is_some() {
-                    Yaml::Real(v.to_owned())
-                } else {
-                    Yaml::String(v.to_owned())
-                }
-            }
+        let scalar_value = ScalarValue::from_str(v);
+        Self::from_scalar_value(scalar_value)
+    }
+
+    /// Convert a [`saphyr_parser::ScalarValue`] to a [`Yaml`] node.
+    pub fn from_scalar_value(scalar_value: ScalarValue) -> Yaml {
+        match scalar_value {
+            ScalarValue::Real(s) => Yaml::Real(s.into_owned()),
+            ScalarValue::String(s) => Yaml::String(s.into_owned()),
+            ScalarValue::Boolean(b) => Yaml::Boolean(b),
+            ScalarValue::Integer(i) => Yaml::Integer(i),
+            ScalarValue::Null => Yaml::Null,
+            ScalarValue::BadValue => Yaml::BadValue,
         }
     }
 }

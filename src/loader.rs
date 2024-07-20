@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use hashlink::LinkedHashMap;
-use saphyr_parser::{Event, MarkedEventReceiver, Marker, ScanError, TScalarStyle, Tag};
+use saphyr_parser::{Event, MarkedEventReceiver, Marker, ScalarValue, ScanError};
 
 use crate::{Hash, Yaml};
 
@@ -85,43 +85,8 @@ where
                 self.insert_new_node(node);
             }
             Event::Scalar(v, style, aid, tag) => {
-                let node = if style != TScalarStyle::Plain {
-                    Yaml::String(v)
-                } else if let Some(Tag {
-                    ref handle,
-                    ref suffix,
-                }) = tag
-                {
-                    if handle == "tag:yaml.org,2002:" {
-                        match suffix.as_ref() {
-                            "bool" => {
-                                // "true" or "false"
-                                match v.parse::<bool>() {
-                                    Err(_) => Yaml::BadValue,
-                                    Ok(v) => Yaml::Boolean(v),
-                                }
-                            }
-                            "int" => match v.parse::<i64>() {
-                                Err(_) => Yaml::BadValue,
-                                Ok(v) => Yaml::Integer(v),
-                            },
-                            "float" => match parse_f64(&v) {
-                                Some(_) => Yaml::Real(v),
-                                None => Yaml::BadValue,
-                            },
-                            "null" => match v.as_ref() {
-                                "~" | "null" => Yaml::Null,
-                                _ => Yaml::BadValue,
-                            },
-                            _ => Yaml::String(v),
-                        }
-                    } else {
-                        Yaml::String(v)
-                    }
-                } else {
-                    // Datatype is not specified, or unrecognized
-                    Yaml::from_str(&v)
-                };
+                let scalar_value = ScalarValue::from_scalar_event(v, style, aid, tag);
+                let node = Yaml::from_scalar_value(scalar_value);
                 self.insert_new_node((Node::from_bare_yaml(node).with_marker(marker), aid));
             }
             Event::Alias(id) => {
@@ -295,16 +260,5 @@ impl LoadableYamlNode for Yaml {
         let mut taken_out = Yaml::BadValue;
         std::mem::swap(&mut taken_out, self);
         taken_out
-    }
-}
-
-// parse f64 as Core schema
-// See: https://github.com/chyh1990/yaml-rust/issues/51
-pub(crate) fn parse_f64(v: &str) -> Option<f64> {
-    match v {
-        ".inf" | ".Inf" | ".INF" | "+.inf" | "+.Inf" | "+.INF" => Some(f64::INFINITY),
-        "-.inf" | "-.Inf" | "-.INF" => Some(f64::NEG_INFINITY),
-        ".nan" | "NaN" | ".NAN" => Some(f64::NAN),
-        _ => v.parse::<f64>().ok(),
     }
 }

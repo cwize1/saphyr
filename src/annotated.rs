@@ -5,8 +5,7 @@ pub mod marked_yaml;
 use std::ops::{Index, IndexMut};
 
 use hashlink::LinkedHashMap;
-
-use crate::loader::parse_f64;
+use saphyr_parser::parse_f64;
 
 /// YAML data for nodes that will contain annotations.
 ///

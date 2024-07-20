@@ -46,7 +46,6 @@
 mod macros;
 
 mod annotated;
-mod char_traits;
 mod emitter;
 mod loader;
 mod yaml;
